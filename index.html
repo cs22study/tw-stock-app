@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -119,7 +119,9 @@
                 const data = await response.json();
                 
                 // 從所有股票陣列中篩選出使用者輸入的股票代碼
-                const targetStock = data.find(item => item.Code === stockCode);
+                // const targetStock = data.find(item => item.Code === stockCode);
+                const stockList = data.data || data; 
+                const targetStock = stockList.find(item => item.Code === stockCode);
 
                 if (!targetStock) {
                     throw new Error('找不到該股票代碼，可能代碼錯誤或今天無交易資料');
