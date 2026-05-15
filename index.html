@@ -110,54 +110,47 @@
             document.getElementById('errorBox').classList.add('hidden');
 
             try {
-                // 使用公開的台灣股市基本與個股當日行情 OpenAPI 進行串接 (免 API Key / 支援 CORS)
-                // 這裡採用了公用聚合的 TWSE 開放資料
-                const response = await fetch(`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_AVG_ALL`);
+                // 【已修正：使用正確的官方總表 API 網址，並修正引號語法】
+                const response = await fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL');
                 
                 if (!response.ok) throw new Error('網路請求失敗');
                 
                 const data = await response.json();
                 
-                // 從所有股票陣列中篩選出使用者輸入的股票代碼
-                // const targetStock = data.find(item => item.Code === stockCode);
-                const stockList = data.data || data; 
-                const targetStock = stockList.find(item => item.Code === stockCode);
+                // 【已修正：相容 STOCK_DAY_ALL 的 data 欄位結構】
+                const stockList = data.data || data;
+                
+                // 尋找符合使用者輸入的股票代碼
+                // 證交所格式中，Code 可能是 '2330'，但有時候前後會有空白，用 trim() 防呆
+                const targetStock = stockList.find(item => item.Code.trim() === stockCode);
 
                 if (!targetStock) {
                     throw new Error('找不到該股票代碼，可能代碼錯誤或今天無交易資料');
                 }
 
-                // 註：因為一般公開的一支 API 無法涵蓋所有的即時資訊，以下採用開放資料欄位進行示範
-                // 如果需要極度精準的每 5 秒即時資訊，後續可教您使用 GAS 作為中繼站抓取證交所正式網頁。
-                
-                // 模擬/解析資料 (此處以 API 回傳之收盤/均價及基礎行情為核心進行畫面渲染)
+                // 解析證交所 STOCK_DAY_ALL 的實際欄位
+                // 欄位名稱對照：Name=名稱, Code=代碼, ClosingPrice=收盤價, OpenPrice=開盤價, HighestPrice=最高價, LowestPrice=最低價, TradeVolume=成交股數
                 const name = targetStock.Name;
                 const code = targetStock.Code;
-                const currentPrice = parseFloat(targetStock.ClosingPrice) || 0; // 當前/本日收盤價
-                const yesterdayPrice = currentPrice - 0; // 基礎參考值
+                const currentPrice = parseFloat(targetStock.ClosingPrice) || 0; 
+                const openPrice = parseFloat(targetStock.OpenPrice) || 0;
+                const highPrice = parseFloat(targetStock.HighestPrice) || 0;
+                const lowPrice = parseFloat(targetStock.LowestPrice) || 0;
+                
+                // 成交股數換算成「張數」（1張 = 1000股）
+                const volumeAmount = parseInt(targetStock.TradeVolume) || 0;
+                const volumeInSlices = Math.round(volumeAmount / 1000);
                 
                 // 更新 DOM 畫面
                 document.getElementById('stockName').innerText = name;
                 document.getElementById('stockId').innerText = `(${code})`;
                 document.getElementById('currentPrice').innerText = currentPrice.toFixed(2);
-                document.getElementById('yesterdayPrice').innerText = yesterdayPrice.toFixed(2);
-                document.getElementById('openPrice').innerText = currentPrice.toFixed(2);
-                document.getElementById('highPrice').innerText = (currentPrice * 1.01).toFixed(2); // 示意最高
-                document.getElementById('lowPrice').innerText = (currentPrice * 0.99).toFixed(2);  // 示意最低
-                document.getElementById('volume').innerText = "請參考盤後統計";
-                document.getElementById('queryTime').innerText = `資料時間：${new Date().toLocaleTimeString()}`;
-
-                // 顏色美化邏輯：台股習慣紅漲綠跌
-                const priceElement = document.getElementById('currentPrice');
-                const changeElement = document.getElementById('priceChange');
-                const changePercentElement = document.getElementById('priceChangePercent');
-                
-                // 先給予基礎顏色（此處暫設定為穩定或平盤藍色，可依據漲跌幅動態切換 text-red-600 或 text-green-600）
-                priceElement.className = "text-5xl font-black font-mono tracking-tight my-2 text-slate-800";
-                changeElement.innerText = "● 平盤";
-                changePercentElement.innerText = "0.00%";
-                changeElement.className = "text-slate-500";
-                changePercentElement.className = "text-slate-500";
+                document.getElementById('yesterdayPrice').innerText = openPrice.toFixed(2); // 總表無昨收，以開盤暫代
+                document.getElementById('openPrice').innerText = openPrice.toFixed(2);
+                document.getElementById('highPrice').innerText = highPrice.toFixed(2);
+                document.getElementById('lowPrice').innerText = lowPrice.toFixed(2);
+                document.getElementById('volume').innerText = volumeInSlices.toLocaleString() + " 張";
+                document.getElementById('queryTime').innerText = `資料時間：${new Date().toLocaleDateString()} 盤後大總表`;
 
                 // 顯示結果區
                 document.getElementById('resultBox').classList.remove('hidden');
