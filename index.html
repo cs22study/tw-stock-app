@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>台股精準即時行情查詢系統 v2.0</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>台股精準即時行情查詢系統 v2.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-900 min-h-screen py-10 px-4 font-sans text-slate-100">
 
     <div class="max-w-md mx-auto bg-slate-800 rounded-3xl shadow-2xl overflow-hidden p-6 border border-slate-700">
         <div class="text-center mb-6">
             <h1 class="text-2xl font-bold text-white flex justify-center items-center gap-2">
-                📊 台股精準即時查詢 <span class="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-full font-normal border border-emerald-500/20">v2.0 GAS連線版</span>
+                📊 台股精準即時查詢 <span class="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-full font-normal border border-emerald-500/20">v2.1 穩定版</span>
             </h1>
             <p class="text-xs text-slate-400 mt-1.5">整合證交所盤中即時數據 · 自動判定紅漲綠跌</p>
         </div>
@@ -40,7 +40,7 @@
         </div>
 
         <div id="errorBox" class="hidden bg-red-950/50 border border-red-800 text-red-300 p-4 rounded-2xl text-sm mb-4">
-            ⚠️ <span>查詢失敗：找不到該股票或目前非盤中交易時間。</span>
+            ⚠️ <span id="errorText">查詢失敗：找不到該股票或目前非盤中交易時間。</span>
         </div>
 
         <div id="resultBox" class="hidden transition-all duration-300">
@@ -92,7 +92,8 @@
     </div>
 
     <script>
-        // ⚠️ 【請在此處替換成你剛剛複製的 GAS 網頁應用程式 URL】
+        // 🚨【重要檢查！】請在這裡將雙引號內的文字換成你的 GAS 網頁應用程式網址
+        // 範例：const GAS_WEB_APP_URL = "https://script.google.com/macros/s/XXXXXX/exec";
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzNI6buogWxdQFjYULOO6PfCILZpOTZfzJVl2SUyRVU9QgBIZSPH0kITwJmnCn0Ds1R9A/exec";
 
         document.getElementById('stockCode').addEventListener('keypress', function (e) {
@@ -106,6 +107,12 @@
                 return;
             }
 
+            // 安全防呆檢查
+            if (GAS_WEB_APP_URL.indexOf("請將你的GAS") > -1 || !GAS_WEB_APP_URL.startsWith("https://")) {
+                alert("錯誤：您還沒有在程式碼中設定正確的 GAS_WEB_APP_URL 網址！請去編輯 index.html。");
+                return;
+            }
+
             document.getElementById('loading').classList.remove('hidden');
             document.getElementById('resultBox').classList.add('hidden');
             document.getElementById('errorBox').classList.add('hidden');
@@ -113,7 +120,14 @@
             try {
                 // 發送請求給 GAS 微後端中繼站
                 const response = await fetch(`${GAS_WEB_APP_URL}?code=${stockCode}`);
-                if (!response.ok) throw new Error('連線中繼站失敗');
+                
+                // 【新增：強化錯誤攔截】檢查回傳的 MIME 類型是否正確
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("text/html") > -1) {
+                    throw new Error("GAS 網址設定錯誤！您可能複製成編輯器網址，或是部署時沒有把權限設定為「所有人」。");
+                }
+
+                if (!response.ok) throw new Error('連線中繼站失敗，請確認 GAS 服務正常運作。');
                 
                 const data = await response.json();
 
@@ -132,7 +146,7 @@
                 document.getElementById('volume').innerText = data.volume.toLocaleString() + " 張";
                 document.getElementById('queryTime').innerText = `資料時間：${data.time || new Date().toLocaleTimeString()}`;
 
-                // 💡 台股視覺邏輯：紅漲、綠跌、白平盤
+                // 台股紅漲綠跌視覺邏輯
                 const priceText = document.getElementById('currentPrice');
                 const changeText = document.getElementById('priceChange');
                 const percentText = document.getElementById('priceChangePercent');
@@ -142,7 +156,6 @@
                 const percent = data.priceChangePercent;
 
                 if (change > 0) {
-                    // 漲：紅色
                     priceText.className = "text-5xl font-black font-mono tracking-tight my-1.5 text-red-500";
                     changeText.innerText = `▲ ${change.toFixed(2)}`;
                     percentText.innerText = `+${percent.toFixed(2)}%`;
@@ -150,7 +163,6 @@
                     percentText.className = "text-red-500";
                     priceCard.className = "bg-red-950/20 rounded-2xl p-5 text-center mb-4 border border-red-900/30 transition-all duration-300";
                 } else if (change < 0) {
-                    // 跌：綠色
                     priceText.className = "text-5xl font-black font-mono tracking-tight my-1.5 text-green-500";
                     changeText.innerText = `▼ ${Math.abs(change).toFixed(2)}`;
                     percentText.innerText = `${percent.toFixed(2)}%`;
@@ -158,7 +170,6 @@
                     percentText.className = "text-green-500";
                     priceCard.className = "bg-green-950/20 rounded-2xl p-5 text-center mb-4 border border-green-900/30 transition-all duration-300";
                 } else {
-                    // 平盤：白色/灰色
                     priceText.className = "text-5xl font-black font-mono tracking-tight my-1.5 text-slate-100";
                     changeText.innerText = "● 0.00";
                     percentText.innerText = "0.00%";
@@ -171,19 +182,15 @@
 
             } catch (error) {
                 console.error(error);
-                const errorMsgSpan = document.querySelector('#errorBox span');
-                errorMsgSpan.innerText = error.message || "查詢失敗，請稍後再試。";
+                document.getElementById('errorText').innerText = error.message || "查詢失敗，請稍後再試。";
                 document.getElementById('errorBox').classList.remove('hidden');
             } finally {
                 document.getElementById('loading').classList.add('hidden');
             }
         }
 
-        // 預設載入查台積電
         window.onload = function() {
-            if(GAS_WEB_APP_URL === "請將你的GAS網頁應用程式網址貼在這裡") {
-                alert("請記得在程式碼中修改 GAS_WEB_APP_URL 變數，才能正常查詢喔！");
-            } else {
+            if(GAS_WEB_APP_URL.indexOf("請將你的GAS") === -1) {
                 queryStock();
             }
         };
