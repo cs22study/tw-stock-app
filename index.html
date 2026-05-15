@@ -112,7 +112,7 @@
             try {
                 // 使用公開的台灣股市基本與個股當日行情 OpenAPI 進行串接 (免 API Key / 支援 CORS)
                 // 這裡採用了公用聚合的 TWSE 開放資料
-                const response = await fetch(`https://openapi.twse.tw/v1/exchangeReport/STOCK_DAY_AVG_ALL`);
+                const response = await fetch(`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_AVG_ALL`);
                 
                 if (!response.ok) throw new Error('網路請求失敗');
                 
